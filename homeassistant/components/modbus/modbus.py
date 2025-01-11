@@ -368,10 +368,19 @@ class ModbusHub:
         self, slave: int | None, address: int, value: int | list[int], use_call: str
     ) -> ModbusPDU | None:
         """Call sync. pymodbus."""
-        kwargs = {"slave": slave} if slave else {}
+        kwargs = {"address": address}
+        if slave is not None:
+            kwargs["slave"] = slave
         entry = self._pb_request[use_call]
         try:
-            result: ModbusPDU = await entry.func(address, value, **kwargs)
+            if use_call.startswith("write_"):
+                if isinstance(value, list):
+                    kwargs["values"] = value
+                else:
+                    kwargs["value"] = value
+            else:
+                kwargs["count"] = value
+            result: ModbusPDU = await entry.func(**kwargs)
         except ModbusException as exception_error:
             error = f"Error: device: {slave} address: {address} -> {exception_error!s}"
             self._log_error(error)
